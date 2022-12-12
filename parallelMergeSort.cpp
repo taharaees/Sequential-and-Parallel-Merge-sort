@@ -1,12 +1,13 @@
-#include <stdio.h>
+#include <assert.h>
 #include <string.h>
 #include <stdlib.h>
-#include<iostream>
-#include<fstream>
-#include<omp.h>
-#define MAX_SIZE 10000
-
+#include <stdio.h>
+#include <omp.h>
+#include <iostream>
+#include <fstream>
 using namespace std;
+
+#define TASK_SIZE 100
 
 // class for records
 class studentRecord
@@ -31,271 +32,254 @@ void print_list(studentRecord * x, int n)
 
 
 
+
 /*************************************************MERGESORT USING NAME********************************************************/
-//Merging 2 sorted subarrays into one tmp array
-void mergeName(studentRecord * X, int n, studentRecord * tmp) 
-{
-   	int i = 0;
-   	int j = n/2;
-   	int ti = 0;
 
-	//i will iterate till first  half anf J will iterate for 2nd half of array
-   	while (i<n/2 && j<n) 
-   	{
-    	if (X[i].name < X[j].name) 
-      	{
-        	tmp[ti] = X[i];
-         	ti++; 
-         	i++;
-      	} 
-      	else 
-      	{
-         	tmp[ti] = X[j];
-         	ti++; 
-	      	j++;
-      	}
-   	}
+void mergeSortNameAux(studentRecord *X, int n, studentRecord *tmp) 
+{
+   int i = 0;
+   int j = n/2;
+   int ti = 0;
+
+   while (i<n/2 && j<n) 
+   {
+      if (X[i].name < X[j].name) 
+	  {
+         tmp[ti] = X[i];
+         ti++; i++;
+      } 
+	  else 
+	  {
+         tmp[ti] = X[j];
+         ti++; j++;
+      }
+   }
+   while (i<n/2) 
+   { 
+      tmp[ti] = X[i];
+      ti++; i++;
+   }
+   while (j<n) 
+   { 
+      tmp[ti] = X[j];
+      ti++; j++;
+   }
    
-   	while (i<n/2) 
-   	{  
-      	/* finish up lower half */
-      	tmp[ti] = X[i];
-	   	ti++;
-	   	i++;
-   	}
-   	
-	while (j<n) 
-   	{  
-    	/* finish up upper half */
-      	tmp[ti] = X[j];
-      	ti++; 
-      	j++;
-   	}
-	
-	//Copy sorted array tmp back to X (Original array)
-   	for(int i=0;i<n;++i)
-   	{
-   		X[i]=tmp[i];
-   	}
-}
+   for(int i=0;i<n;++i)
+    {
+         X[i]=tmp[i];
+    }
+} 
 
-void mergesortName(studentRecord * X, int n, studentRecord * tmp)
+void mergeSortName(studentRecord *X, int n, studentRecord *tmp)
 {
-	if (n < 2)
-	{
-		return;
-	}
-		
-	#pragma omp task firstprivate (X, n, tmp)
-	mergesortName(X, n/2, tmp);
-	
-	#pragma omp task firstprivate (X, n, tmp)
-	mergesortName(X+(n/2), n-(n/2), tmp);
-	
-	//Wait for both paralel tasks to complete execution
-	#pragma omp taskwait
-	/* merge sorted halves into sorted list */
-	mergeName(X, n, tmp);
-}
-/************************************************************************************************************************/
+   printf("Thread id: %d doing %d\n",omp_get_thread_num(), n);
+   if (n < 2) return;
 
+   #pragma omp task shared(X) if (n > TASK_SIZE)
+   {
+   	 	mergeSortName(X, n/2, tmp);
+   }
+   #pragma omp task shared(X) if (n > TASK_SIZE)
+   mergeSortName(X+(n/2), n-(n/2), tmp + n/2);
+
+   #pragma omp taskwait
+   mergeSortNameAux(X, n, tmp);
+}
+
+/************************************************************************************************************************************************/
 
 
 
 /*************************************************MERGESORT USING ID********************************************************/
-//Merging 2 sorted subarrays into one tmp array
-void mergeID(studentRecord * X, int n, studentRecord * tmp) 
-{
-   	int i = 0;
-   	int j = n/2;
-   	int ti = 0;
 
-	//i will iterate till first  half anf J will iterate for 2nd half of array
-   	while (i<n/2 && j<n) 
-   	{
-      	if (X[i].id < X[j].id) 
-      	{
-         	tmp[ti] = X[i];
-         	ti++; 
-         	i++;
-      	} 
-      	else 
-      	{
-         	tmp[ti] = X[j];
-         	ti++; 
-	     	j++;
-      	}		
-   	}
-   	while (i<n/2) 
-   	{  
-      	/* finish up lower half */
-      	tmp[ti] = X[i];
-	   	ti++;
-	   	i++;
-   	}
-   	
-	while (j<n) 
-   	{  
-      	/* finish up upper half */
-      	tmp[ti] = X[j];
-      	ti++; 
-      	j++;
-   	}
-	
-	//Copy sorted array tmp back to  X (Original array)
-   	for(int i=0;i<n;++i)
-   	{
-   		X[i]=tmp[i];
-   	}
+void mergeSortIDAux(studentRecord *X, int n, studentRecord *tmp) 
+{
+   int i = 0;
+   int j = n/2;
+   int ti = 0;
+
+   while (i<n/2 && j<n) 
+   {
+      if (X[i].id < X[j].id)
+	  {
+         tmp[ti] = X[i];
+         ti++; i++;
+      } 
+	  else 
+	  {
+         tmp[ti] = X[j];
+         ti++; j++;
+      }
+   }
+   while (i<n/2) 
+   {
+      tmp[ti] = X[i];
+      ti++; i++;
+   }
+   while (j<n) 
+   { 
+      tmp[ti] = X[j];
+      ti++; j++;
+   }
+   
+   for(int i=0;i<n;++i)
+    {
+         X[i]=tmp[i];
+    }
+} 
+
+void mergeSortID(studentRecord *X, int n, studentRecord *tmp)
+{
+  // printf("Thread id: %d doing %d\n",omp_get_thread_num(), n);
+   if (n < 2) return;
+
+   #pragma omp task shared(X) if (n > TASK_SIZE)
+   {
+   	 	mergeSortID(X, n/2, tmp);
+   }
+   #pragma omp task shared(X) if (n > TASK_SIZE)
+   mergeSortID(X+(n/2), n-(n/2), tmp + n/2);
+
+   #pragma omp taskwait
+   mergeSortIDAux(X, n, tmp);
 }
 
-void mergesortID(studentRecord * X, int n, studentRecord * tmp)
-{
-   	if (n < 2)
-   	{
-		return;
-	}
-
-	#pragma omp task firstprivate (X, n, tmp)
-   	mergesortID(X, n/2, tmp);
-
-	#pragma omp task firstprivate (X, n, tmp)
-   	mergesortID(X+(n/2), n-(n/2), tmp);
-
-	//Wait for both paralel tasks to complete execution
-	#pragma omp taskwait
-	/* merge sorted halves into sorted list */
-   	mergeID(X, n, tmp);
-}
-/************************************************************************************************************************/
-
+/************************************************************************************************************************************************/
 
 
 
 
 /*************************************************MERGESORT USING CGPA********************************************************/
-//Merging 2 sorted subarrays into one tmp array
-void mergeCGPA(studentRecord * X, int n, studentRecord * tmp) 
-{
-   	int i = 0;
-   	int j = n/2;
-   	int ti = 0;
 
-	//i will iterate till first  half anf J will iterate for 2nd half of array
-   	while (i<n/2 && j<n) 
-   	{
-      	if (X[i].cgpa < X[j].cgpa) 
-      	{
-         	tmp[ti] = X[i];
-         	ti++; 
-         	i++;
-      	} 
-      	else 
-      	{
-         	tmp[ti] = X[j];
-         	ti++; 
-	    	j++;
-      	}
-   	}
-   
-   	while (i<n/2) 
-   	{  
-      /* finish up lower half */
-    	tmp[ti] = X[i];
-	   	ti++;
-	   	i++;
-   	}
-   	while (j<n) 
-   	{  
-      /* finish up upper half */
+void mergeSortCGPAAux(studentRecord *X, int n, studentRecord *tmp) 
+{
+   int i = 0;
+   int j = n/2;
+   int ti = 0;
+
+   while (i<n/2 && j<n) 
+   {
+      if (X[i].cgpa < X[j].cgpa) 
+	  {
+         tmp[ti] = X[i];
+         ti++; i++;
+      } 
+	  else 
+	  {
+         tmp[ti] = X[j];
+         ti++; j++;
+      }
+   }
+   while (i<n/2) 
+   { 
+      tmp[ti] = X[i];
+      ti++; i++;
+   }
+   while (j<n) 
+   { 
       tmp[ti] = X[j];
-      ti++; 
-      j++;
-   	}
-	//Copy sorted array tmp back to  X (Original array)
-   	for(int i=0;i<n;++i)
-   	{
-   		X[i]=tmp[i];
-   	}
+      ti++; j++;
+   }
+   
+   for(int i=0;i<n;++i)
+    {
+         X[i]=tmp[i];
+    }
+} 
 
+void mergeSortCGPA(studentRecord *X, int n, studentRecord *tmp)
+{
+   printf("Thread id: %d doing %d\n",omp_get_thread_num(), n);
+   if (n < 2) return;
+
+   #pragma omp task shared(X) if (n > TASK_SIZE)
+   {
+   	 	mergeSortCGPA(X, n/2, tmp);
+   }
+   #pragma omp task shared(X) if (n > TASK_SIZE)
+   mergeSortCGPA(X+(n/2), n-(n/2), tmp + n/2);
+
+   #pragma omp taskwait
+   mergeSortCGPAAux(X, n, tmp);
 }
 
-void mergesortCGPA(studentRecord * X, int n, studentRecord * tmp)
+/************************************************************************************************************************************************/
+
+
+
+int main() 
 {
-	if (n < 2) 
-	{
-		return;
-	}
-	
-	#pragma omp task firstprivate (X, n, tmp)
-	mergesortCGPA(X, n/2, tmp);
-	
-	#pragma omp task firstprivate (X, n, tmp)
-	mergesortCGPA(X+(n/2), n-(n/2), tmp);
+        int N  = 10000;
+        int inpt;
+        studentRecord X[N];
+        studentRecord tmp[N]; 
+        double start, stop;
 
-	//Wait for both paralel tasks to complete execution
-	#pragma omp taskwait
-   	/* merge sorted halves into sorted list */
-   	mergeCGPA(X, n, tmp);
-}
-/************************************************************************************************************************/
-
-
+        omp_set_dynamic(0);              /** Explicitly disable dynamic teams **/
+        omp_set_num_threads(3);  
+		
+        int i=0;
+        ifstream fin("input.txt");
+        while(!fin.eof())
+        {
+           fin>>X[i].id>>X[i].name>>X[i].cgpa; //read data from the file student
+           i++;
+        }
+        fin.close();
 
 
+		cout << "List Before Sorting...\n";
+	   	print_list(X, N);
+	   	cout<<"\n";
+	   	cout<<"1:sort by Name\n";
+	   	cout<<"2:sort by ID\n";
+	   	cout<<"3:sort by CGPA\n";
+		cout<<"Please enter number:";
+		cin>>inpt;
+		
+		// Switch case for option of mergesort type
+		switch(inpt)
+		{
+				/********************SORT BY NAME CALL**********************/
+			case 1:
+	         start = omp_get_wtime();
+	         #pragma omp parallel
+	         {
+	             #pragma omp single
+	             mergeSortName(X, N, tmp);
+	         }   
+	         stop = omp_get_wtime();
+       		 break;
+       		
+       			 /********************SORT BY ID CALL**********************/
+			 case 2:   
+	         start = omp_get_wtime();
+	         #pragma omp parallel
+	         {
+	             #pragma omp single
+	             mergeSortID(X, N, tmp);
+	         }   
+	         stop = omp_get_wtime();
+	         break;
+	         
+	          /********************SORT BY CGPA CALL**********************/
+	         case 3:
+	         start = omp_get_wtime();
+	         #pragma omp parallel
+	         {
+	             #pragma omp single
+	             mergeSortCGPA(X, N, tmp);
+	            
+	         }   
+	         stop = omp_get_wtime();
+	         break;
+		}
 
-
-int main()
-{
-	int inpt;
-   	int n=10000;
-   	double start, stop;
-	
-   	studentRecord data[MAX_SIZE], tmp[MAX_SIZE];
-
-	int i=0;
-	ifstream fin("input.txt");
-	while(!fin.eof())
-	{
-		fin>>data[i].id>>data[i].name>>data[i].cgpa; //read data from the file student
-		i++;
-	}
-	fin.close();
-   
-	cout << "List Before Sorting...\n";
-   	print_list(data, n);
-   	cout<<"\n";
-   	cout<<"1:sort by Name\n";
-   	cout<<"2:sort by ID\n";
-   	cout<<"3:sort by CGPA\n";
-	cout<<"Please enter number:";
-	cin>>inpt;
-	
-	// Switch case for option of mergesort type
-	switch(inpt)
-	{
-		case 1:
-			start = omp_get_wtime();   
-      		mergesortName(data, n, tmp);
-   			stop = omp_get_wtime();
-   			break;
-   		case 2:
-   			start = omp_get_wtime();   
-      		mergesortID(data, n, tmp);
-   			stop = omp_get_wtime();
-   			break;
-		case 3:
-			start = omp_get_wtime();   
-      		mergesortCGPA(data, n, tmp);
-   			stop = omp_get_wtime();
-   			break;
-	}
-
-		  
-   
-   	cout << "\nList After Sorting...\n";
-   	print_list(data, n);
-
-	cout << "\nTime: " << stop-start;
-
+        print_list(X, N);
+	 	printf("Time: %f (s) \n",stop-start);
+	 
+        free(X);
+        free(tmp);
+        return 0;
 }
